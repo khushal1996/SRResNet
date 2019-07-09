@@ -1,6 +1,6 @@
 #Setup
 import os
-os.system('pip3 install wandb')
+os.system('pip install wandb')
 os.system('wandb login 6a7dc326ddfe055cd3991cd259eeeb789c3d8c34')
 import numpy as np
 import keras

@@ -86,7 +86,7 @@ downscale_factor = 1
 
 num_steps = 200000
 steps_per_epoch = 625
-epochs = 601
+epochs = 1501
 
 # axis used in Parametric ReLU !
 shared_axis = [1,2] if data_format == 'channels_last' else [2,3]

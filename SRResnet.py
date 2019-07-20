@@ -59,7 +59,7 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
 from tensorflow.keras.applications.vgg19 import VGG19
-
+from tensorflow.keras.callbacks import LearningRateScheduler as LRS
 from shutil import rmtree
 import keras.callbacks.LearningRateSchedule as LRS
 #from batch_generator import COCOBatchGenerator
@@ -229,6 +229,19 @@ class ImageLogger(Callback):
             self.model.save(name2)
             self.model.stop_training = True
 
+def step_decay(epoch):
+    if (epoch>150):
+      lrate = 0.00005
+      return lrate
+    if (epoch>300):
+      lrate = 0.00003
+      return lrate
+    else:
+      lrate = 0.0001
+      return lrate
+
+lrate = LRS(step_decay)
+
 opt = Adam(lr=0.0001, beta_1=0.9)
 #tpu_model = tf.contrib.tpu.keras_to_tpu_model(generator, strategy=tf.contrib.tpu.TPUDistributionStrategy(tf.contrib.cluster_resolver.TPUClusterResolver(tpu='grpc://' + os.environ['COLAB_TPU_ADDR'])))
 generator.compile(loss='mae', optimizer=opt, metrics=[perceptual_distance])
@@ -237,6 +250,6 @@ generator.compile(loss='mae', optimizer=opt, metrics=[perceptual_distance])
 generator.fit_generator(image_generator(config.batch_size, train_dir),
                             steps_per_epoch=config.steps_per_epoch,
                             epochs=config.num_epochs, callbacks=[
-                            ImageLogger(generator, 15), WandbCallback()],
+                            lrate, ImageLogger(generator, 15), WandbCallback()],
                             validation_steps=config.val_steps_per_epoch,
                             validation_data=(val_generator))

@@ -7,35 +7,14 @@ Created on Sat Jul 20 12:26:36 2019
 
 import os
 import subprocess
-if not os.path.exists("data"):
+if not os.path.exists("data1"):
     print("Downloading flower dataset...")
     subprocess.check_output(
-        "mkdir data && curl https://storage.googleapis.com/wandb/flower-enhance.tar.gz | tar xz -C data", shell=True)
-    
-import os
-os.mkdir('data/hor')
+        "mkdir data1 && curl https://storage.googleapis.com/wandb/flower-enhance.tar.gz | tar xz -C data1", shell=True)
+
 
 import glob
 import cv2
-input_filename = glob.glob("data/train" + "/*-out.jpg")
-counter = 1
-for x in input_filename:
-    if counter%2==0:
-        rot = 0
-    else:
-        rot = -1
-    img = cv2.imread(x)
-    hor = img.copy()
-    hor = cv2.flip(img, rot)
-    cv2.imwrite("data/hor/horblah"+str(counter)+"-out.jpg", hor)
-    cv2.imwrite("data/hor/horblahor"+str(counter)+"-out.jpg", img)
-    inp = x.replace("-out.jpg", "-in.jpg")
-    img = cv2.imread(inp)
-    hor = img.copy()
-    hor = cv2.flip(img, rot)
-    cv2.imwrite("data/hor/horblah"+str(counter)+"-in.jpg", hor)
-    cv2.imwrite("data/hor/horblahor"+str(counter)+"-in.jpg", img)
-    counter+=1
 
 import numpy as np
 
@@ -60,8 +39,9 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
 from tensorflow.keras.applications.vgg19 import VGG19
 from tensorflow.keras.callbacks import LearningRateScheduler as LRS
+from tensorflow.keras.models import Model, load_model
 from shutil import rmtree
-import keras.callbacks.LearningRateSchedule as LRS
+#import keras.callbacks.LearningRateSchedule as LRS
 #from batch_generator import COCOBatchGenerator
 #from bsd100_callback import BSD100_Evaluator
 #from utils import print_available_devices, deprocess_HR, deprocess_LR
@@ -78,9 +58,9 @@ print("Tensorflow : ", tf.__version__)
 
 
 
-B = 16 # number of residual block
+B = 8 # number of residual block
 
-batch_size = 4
+batch_size = 16
 target_size = (256,256)
 downscale_factor = 1
 
@@ -161,8 +141,8 @@ output_generator = Conv2D(3, kernel_size=(9,9),
 generator = Model(inputs=input_generator, outputs=output_generator)
 
 
-val_dir = 'data/test'
-train_dir = 'data/hor'
+val_dir = 'data1/test'
+train_dir = 'data1/hor'
 
 config.steps_per_epoch = len(
     glob.glob(train_dir + "/*-in.jpg")) // config.batch_size
@@ -218,13 +198,13 @@ class ImageLogger(Callback):
             "examples": [wandb.Image(np.concatenate([in_resized[i] * 255, o * 255, out_sample_images[i] * 255], axis=1)) for i, o in enumerate(preds)]
         }, commit=False)
         if epoch%self.N ==0:
-            name1 = '128regcrossmae1deepweights%08d.h5' % epoch
-            name2 = '128regcrossmae1deepmodel%08d.h5' % epoch
+            name1 = 'run1/128regcrossmae1deepweights%08d.h5' % epoch
+            name2 = 'run1/128regcrossmae1deepmodel%08d.h5' % epoch
             self.model.save_weights(name1)
             self.model.save(name2)
         if logs.get('val_perceptual_distance') < 39.0:
-            name1 = '39deepweights%08d.h5' % epoch
-            name2 = '39deepmodel%08d.h5' % epoch
+            name1 = 'run1/39deepweights%08d.h5' % epoch
+            name2 = 'run1/39deepmodel%08d.h5' % epoch
             self.model.save_weights(name1)
             self.model.save(name2)
             self.model.stop_training = True
@@ -232,12 +212,13 @@ class ImageLogger(Callback):
 
 opt = Adam(lr=0.0001, beta_1=0.9)
 #tpu_model = tf.contrib.tpu.keras_to_tpu_model(generator, strategy=tf.contrib.tpu.TPUDistributionStrategy(tf.contrib.cluster_resolver.TPUClusterResolver(tpu='grpc://' + os.environ['COLAB_TPU_ADDR'])))
-generator.compile(loss='mae', optimizer=opt, metrics=[perceptual_distance])
-
-
+generator.compile(loss='mse', optimizer=opt, metrics=[perceptual_distance])
+model = load_model("128regcrossmae1deepmodel00000210.h5", custom_objects={'perceptual_distance': perceptual_distance})
+weights = model.get_weights()
+#generator.set_weights(weights)
 generator.fit_generator(image_generator(config.batch_size, train_dir),
                             steps_per_epoch=config.steps_per_epoch,
                             epochs=config.num_epochs, callbacks=[
-                            ImageLogger(generator, 15), WandbCallback()],
+                            ImageLogger(generator, 35), WandbCallback()],
                             validation_steps=config.val_steps_per_epoch,
                             validation_data=(val_generator))
